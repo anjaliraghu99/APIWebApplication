@@ -1,6 +1,8 @@
 ﻿using APIWebApplication.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Reflection.Metadata;
@@ -26,7 +28,34 @@ namespace APIWebApplication.Controllers
 
             return Ok(data);
         }
-        [Route("GetData")]
+        [Route("GetAllData")]
+        [HttpGet]
+        public IActionResult GetAllData(string modelname)
+        {
+           
+            List<string> names = new List<string>() { "Products", "Users" };
+
+            if (names.Contains(modelname))
+            {
+              
+                var dbSetProperty = Context.GetType().GetProperty(modelname);
+
+                if (dbSetProperty != null)
+                {
+   
+                    var dbSet = dbSetProperty.GetValue(Context);
+                    var dataMethod = dbSet.GetType().GetMethod("ToList");
+                    var data = dataMethod.Invoke(dbSet, null);
+
+                    return Ok(data);
+                }
+            }
+
+         
+            return NotFound("Model not found");
+        }
+
+        [Route("UpdateData")]
         [HttpPost]
         public IActionResult UpdateData(string json)
         {
@@ -36,8 +65,7 @@ namespace APIWebApplication.Controllers
             if (res != null )
 
             {
-              
-                //updateData.ProductName = updateData.ProductName != null ? updateData.ProductName : res.ProductName;
+
                 res.Price = updateData.Price;
                 res.ProductName = !string.IsNullOrEmpty(updateData.ProductName)
                                    ? updateData.ProductName : res.ProductName; 
@@ -45,15 +73,35 @@ namespace APIWebApplication.Controllers
                 Context.SaveChanges();
 
             }
-           
-          
 
             return Ok(res);
         }
-           
-        
 
+        [Route("DeleteData")]
+        [HttpDelete]
+        public IActionResult DeleteData(string id)
+        {
+            if(id == null)
+            {
+                return BadRequest("Id does not exist");
 
+            }
+            var res = Context.Products.FirstOrDefault( x=>x.Id== id);
+            if (res == null )
+            {
+                return BadRequest("Id does not exist");
+   
+            }
+            else {
+                Context.Products.Remove(res);
+                Context.SaveChanges();
+            }
+            var data = Context.Products.ToList();
+
+            return Ok(data);
+
+        }
 
     }
+
 }
