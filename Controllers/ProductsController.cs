@@ -28,32 +28,10 @@ namespace APIWebApplication.Controllers
 
             return Ok(data);
         }
-        [Route("GetAllData")]
-        [HttpGet]
-        public IActionResult GetAllData(string modelname)
-        {
-           
-            List<string> names = new List<string>() { "Products", "Users" };
 
-            if (names.Contains(modelname))
-            {
-              
-                var dbSetProperty = Context.GetType().GetProperty(modelname);
 
-                if (dbSetProperty != null)
-                {
-   
-                    var dbSet = dbSetProperty.GetValue(Context);
-                    var dataMethod = dbSet.GetType().GetMethod("ToList");
-                    var data = dataMethod.Invoke(dbSet, null);
 
-                    return Ok(data);
-                }
-            }
-
-         
-            return NotFound("Model not found");
-        }
+ 
 
         [Route("UpdateData")]
         [HttpPost]
@@ -101,6 +79,86 @@ namespace APIWebApplication.Controllers
             return Ok(data);
 
         }
+        [Route("InsertData")]
+        [HttpPost]
+        public IActionResult InsertData(string json)
+        {
+            // Deserialize the incoming JSON string into a Product object
+            var newProduct = JsonConvert.DeserializeObject<Products>(json);
+            var res = Context.Products.Find(newProduct.Id);
+            if (res == null)
+            {
+                Context.Products.Add(newProduct);
+
+                // Save the changes to the database
+                Context.SaveChanges();
+
+                // Return the newly inserted product as response
+                var data = Context.Products;
+
+                return Ok(data);
+            }
+            else
+            {
+                return BadRequest("Id already exist");
+            }
+            // Add the new Product to the DbSet
+            
+        }
+
+
+
+
+        [Route("GetAllData")]
+        [HttpGet]
+        public IActionResult GetAllData(string modelname)
+        {
+            // List of allowed model names to prevent invalid modelname input
+            List<string> names = new List<string>() { "Products", "Users" };
+
+            // Check if the modelname exists in the list
+            if (!names.Contains(modelname))
+            {
+                return NotFound("Model not found");
+            }
+
+            // Get the property that matches the modelname (DbSet<T> type)
+            var dbSetProperty = Context.GetType().GetProperty(modelname);
+
+            if (dbSetProperty == null)
+            {
+                return NotFound("Model not found");
+            }
+
+            // Get the DbSet from the context (which is a DbSet<T>)
+            var dbSet = dbSetProperty.GetValue(Context);
+
+            if (dbSet == null)
+            {
+                return NotFound("Model not found");
+            }
+
+            // Ensure the DbSet is an IQueryable (which it should be)
+            if (!(dbSet is IQueryable queryable))
+            {
+                return NotFound("Error: The DbSet is not IQueryable.");
+            }
+
+            // Use reflection to get the ToList method from IQueryable<T>
+            var toListMethod = typeof(Enumerable).GetMethod("ToList").MakeGenericMethod(dbSet.GetType().GetGenericArguments()[0]);
+
+            if (toListMethod == null)
+            {
+                return NotFound("Error: Could not find the ToList method.");
+            }
+
+            // Invoke ToList to retrieve the data
+            var data = toListMethod.Invoke(null, new object[] { queryable });
+
+            // Return the data
+            return Ok(data);
+        }
+
 
     }
 
